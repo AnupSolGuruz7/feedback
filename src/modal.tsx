@@ -6,7 +6,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { submitFeedback } from "./api";
+import { submitFeedback, uploadMedia } from "./api";
 import { FeedbackCategory, MediaType, SDKConfig } from "./types";
 import { captureFullScreen, startRecording } from "./capture";
 import { Screenshotter } from "./screenshotter";
@@ -14,6 +14,7 @@ import { Screenshotter } from "./screenshotter";
 type ModalState =
   | "idle"
   | "capturing"
+  | "uploading"
   | "recording"
   | "submitting"
   | "success"
@@ -169,12 +170,23 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
     setModalState("idle");
   }, []);
 
-  const handleScreenshotterDone = useCallback((annotatedDataUrl: string) => {
-    setFullScreenDataUrl("");
-    setMediaDataUrl(annotatedDataUrl);
-    setMediaType("screenshot");
-    setModalState("idle");
-  }, []);
+  const handleScreenshotterDone = useCallback(
+    async (annotatedDataUrl: string) => {
+      setFullScreenDataUrl("");
+      setModalState("uploading");
+      try {
+        const url = await uploadMedia(config.apiUrl, annotatedDataUrl);
+        setMediaDataUrl(url);
+        setMediaType("screenshot");
+      } catch {
+        setErrorMessage("Screenshot upload failed. Please try again.");
+        setModalState("error");
+        return;
+      }
+      setModalState("idle");
+    },
+    [config.apiUrl],
+  );
 
   const handleScreenshotterCancel = useCallback(() => {
     setFullScreenDataUrl("");
@@ -218,14 +230,27 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
       const file = e.target.files?.[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = () => {
-        setMediaDataUrl(reader.result as string);
-        setMediaType("attachment");
+      reader.onload = async () => {
         setAttachmentName(file.name);
+        setModalState("uploading");
+        try {
+          const id = await uploadMedia(
+            config.apiUrl,
+            reader.result as string,
+            file.name,
+          );
+          setMediaDataUrl(id);
+          setMediaType("attachment");
+        } catch {
+          setErrorMessage("File upload failed. Please try again.");
+          setModalState("error");
+          return;
+        }
+        setModalState("idle");
       };
       reader.readAsDataURL(file);
     },
-    [],
+    [config.apiUrl],
   );
 
   const clearMedia = useCallback(() => {
@@ -265,7 +290,7 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
         os_version,
         app_version: config.appVersion ?? "unknown",
         timestamp: new Date().toISOString(),
-      });
+      } as Parameters<typeof submitFeedback>[1]);
       setModalState("success");
     } catch (err: unknown) {
       const message =
@@ -621,7 +646,7 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
                 </label>
 
                 {/* Option buttons — shown when no media yet */}
-                {mediaType === "none" && (
+                {mediaType === "none" && modalState !== "uploading" && (
                   <div
                     style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}
                   >
@@ -656,6 +681,30 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
                       style={{ display: "none" }}
                       onChange={handleFileChange}
                     />
+                  </div>
+                )}
+
+                {/* Uploading indicator */}
+                {modalState === "uploading" && (
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      color: "#6b7280",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "10px 0",
+                    }}
+                  >
+                    <span
+                      style={{
+                        animation: "fa-pulse 1s ease infinite",
+                        display: "inline-block",
+                      }}
+                    >
+                      ⏳
+                    </span>
+                    Uploading media…
                   </div>
                 )}
 
@@ -822,16 +871,19 @@ function MediaPreview({
 
   if (type === "screenshot")
     return (
-      <div style={wrapStyle}>
+      <div
+        style={{
+          ...wrapStyle,
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          padding: "12px 14px",
+        }}
+      >
         <img
           src={dataUrl}
           alt="Screenshot preview"
-          style={{
-            display: "block",
-            width: "100%",
-            maxHeight: "180px",
-            objectFit: "cover",
-          }}
+          style={{ maxWidth: "100%" }}
         />
         {clearBtn}
       </div>
