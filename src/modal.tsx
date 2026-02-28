@@ -11,23 +11,69 @@ import { FeedbackCategory, MediaType, SDKConfig } from "./types";
 import { captureFullScreen, startRecording } from "./capture";
 import { Screenshotter } from "./screenshotter";
 
-type ModalState = "idle" | "capturing" | "recording" | "submitting" | "success" | "error";
+type ModalState =
+  | "idle"
+  | "capturing"
+  | "recording"
+  | "submitting"
+  | "success"
+  | "error";
 
 interface ModalProps {
   config: SDKConfig;
   onClose: () => void;
 }
 
-const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+const FONT =
+  "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 const BLUE = "#2563eb";
 const BORDER = "#e5e7eb";
 
 // ── Auto-detect category from text ──────────────────────────────────────────
 function detectCategory(title: string, desc: string): FeedbackCategory {
   const text = `${title} ${desc}`.toLowerCase();
-  const bugWords = ["bug", "error", "broken", "crash", "fail", "issue", "not working", "wrong", "glitch", "problem", "fix"];
-  const featureWords = ["feature", "add", "request", "improve", "enhancement", "wish", "would be nice", "suggest", "new", "allow", "support"];
-  const uxWords = ["ui", "ux", "design", "layout", "look", "feel", "confusing", "hard to", "difficult", "slow", "loading", "style", "color", "font"];
+  const bugWords = [
+    "bug",
+    "error",
+    "broken",
+    "crash",
+    "fail",
+    "issue",
+    "not working",
+    "wrong",
+    "glitch",
+    "problem",
+    "fix",
+  ];
+  const featureWords = [
+    "feature",
+    "add",
+    "request",
+    "improve",
+    "enhancement",
+    "wish",
+    "would be nice",
+    "suggest",
+    "new",
+    "allow",
+    "support",
+  ];
+  const uxWords = [
+    "ui",
+    "ux",
+    "design",
+    "layout",
+    "look",
+    "feel",
+    "confusing",
+    "hard to",
+    "difficult",
+    "slow",
+    "loading",
+    "style",
+    "color",
+    "font",
+  ];
 
   const bugScore = bugWords.filter((w) => text.includes(w)).length;
   const featureScore = featureWords.filter((w) => text.includes(w)).length;
@@ -48,9 +94,11 @@ function detectDevice(): { deviceName: string; os_version: string } {
   let os_version = "Unknown";
   let m: RegExpMatchArray | null;
   if ((m = ua.match(/Windows NT ([\d.]+)/))) os_version = `Windows ${m[1]}`;
-  else if ((m = ua.match(/Mac OS X ([\d_]+)/))) os_version = `macOS ${m[1].replace(/_/g, ".")}`;
+  else if ((m = ua.match(/Mac OS X ([\d_]+)/)))
+    os_version = `macOS ${m[1].replace(/_/g, ".")}`;
   else if ((m = ua.match(/Android ([\d.]+)/))) os_version = `Android ${m[1]}`;
-  else if ((m = ua.match(/OS ([\d_]+) like Mac/))) os_version = `iOS ${m[1].replace(/_/g, ".")}`;
+  else if ((m = ua.match(/OS ([\d_]+) like Mac/)))
+    os_version = `iOS ${m[1].replace(/_/g, ".")}`;
   return { deviceName, os_version };
 }
 
@@ -60,7 +108,9 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
   const [mediaType, setMediaType] = useState<MediaType>("none");
   const [mediaDataUrl, setMediaDataUrl] = useState<string>("");
   const [attachmentName, setAttachmentName] = useState<string>("");
-  const [recordingHandle, setRecordingHandle] = useState<{ stop: () => void } | null>(null);
+  const [recordingHandle, setRecordingHandle] = useState<{
+    stop: () => void;
+  } | null>(null);
   const [modalState, setModalState] = useState<ModalState>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [visible, setVisible] = useState(false);
@@ -84,7 +134,12 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
   // ESC to close (only when screenshotter is not open)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && modalState !== "submitting" && !screenshotterOpen) handleClose();
+      if (
+        e.key === "Escape" &&
+        modalState !== "submitting" &&
+        !screenshotterOpen
+      )
+        handleClose();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
@@ -158,17 +213,20 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
     fileRef.current?.click();
   }, []);
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setMediaDataUrl(reader.result as string);
-      setMediaType("attachment");
-      setAttachmentName(file.name);
-    };
-    reader.readAsDataURL(file);
-  }, []);
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        setMediaDataUrl(reader.result as string);
+        setMediaType("attachment");
+        setAttachmentName(file.name);
+      };
+      reader.readAsDataURL(file);
+    },
+    [],
+  );
 
   const clearMedia = useCallback(() => {
     setMediaDataUrl("");
@@ -181,7 +239,10 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) { titleRef.current?.focus(); return; }
+    if (!title.trim()) {
+      titleRef.current?.focus();
+      return;
+    }
 
     setModalState("submitting");
     setErrorMessage("");
@@ -190,13 +251,15 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
     const category = detectCategory(title, description);
 
     try {
-      await submitFeedback(config.apiUrl, config.apiKey, config.projectId, {
+      await submitFeedback(config.apiUrl, {
         category,
         title: title.trim(),
         description: description.trim(),
         ...(mediaType === "screenshot" ? { screen_shot: mediaDataUrl } : {}),
         ...(mediaType === "recording" ? { recording: mediaDataUrl } : {}),
-        ...(mediaType === "attachment" ? { attachment: mediaDataUrl, attachment_name: attachmentName } : {}),
+        ...(mediaType === "attachment"
+          ? { attachment: mediaDataUrl, attachment_name: attachmentName }
+          : {}),
         pageURL: window.location.href,
         deviceName,
         os_version,
@@ -205,7 +268,10 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
       });
       setModalState("success");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Submission failed. Please try again.";
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Submission failed. Please try again.";
       setErrorMessage(message);
       setModalState("error");
     }
@@ -220,8 +286,8 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
     zIndex: 2147483645,
     fontFamily: FONT,
     // Hide modal while screenshotter or recording overlay is open
-    opacity: (screenshotterOpen || recordingOverlayOpen) ? 0 : (visible ? 1 : 0),
-    pointerEvents: (screenshotterOpen || recordingOverlayOpen) ? "none" : "all",
+    opacity: screenshotterOpen || recordingOverlayOpen ? 0 : visible ? 1 : 0,
+    pointerEvents: screenshotterOpen || recordingOverlayOpen ? "none" : "all",
     transition: "opacity 0.2s ease",
     display: "flex",
     alignItems: "center",
@@ -238,7 +304,9 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
-    transform: visible ? "scale(1) translateY(0)" : "scale(0.96) translateY(12px)",
+    transform: visible
+      ? "scale(1) translateY(0)"
+      : "scale(0.96) translateY(12px)",
     transition: "transform 0.2s ease",
   };
 
@@ -334,13 +402,43 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
   if (modalState === "success") {
     return (
       <div style={backdropStyle}>
-        <div style={{ ...cardStyle, padding: "48px 40px", textAlign: "center", alignItems: "center" }}>
-          <div style={{ fontSize: "52px", marginBottom: "12px", color: "#22c55e" }}>✓</div>
-          <h2 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: 700, color: "#111827", fontFamily: FONT }}>Feedback sent!</h2>
-          <p style={{ fontSize: "14px", color: "#6b7280", margin: "0 0 24px", fontFamily: FONT }}>
+        <div
+          style={{
+            ...cardStyle,
+            padding: "48px 40px",
+            textAlign: "center",
+            alignItems: "center",
+          }}
+        >
+          <div
+            style={{ fontSize: "52px", marginBottom: "12px", color: "#22c55e" }}
+          >
+            ✓
+          </div>
+          <h2
+            style={{
+              margin: "0 0 8px",
+              fontSize: "18px",
+              fontWeight: 700,
+              color: "#111827",
+              fontFamily: FONT,
+            }}
+          >
+            Feedback sent!
+          </h2>
+          <p
+            style={{
+              fontSize: "14px",
+              color: "#6b7280",
+              margin: "0 0 24px",
+              fontFamily: FONT,
+            }}
+          >
             Thanks for helping us improve. We'll look into it shortly.
           </p>
-          <button style={primaryBtn} onClick={handleClose}>Close</button>
+          <button style={primaryBtn} onClick={handleClose}>
+            Close
+          </button>
         </div>
       </div>
     );
@@ -350,63 +448,129 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
   return (
     <>
       {/* Screenshotter overlay — portaled to body, above everything */}
-      {screenshotterOpen && createPortal(
-        <Screenshotter
-          fullScreenDataUrl={fullScreenDataUrl}
-          onDone={handleScreenshotterDone}
-          onCancel={handleScreenshotterCancel}
-        />,
-        document.body
-      )}
+      {screenshotterOpen &&
+        createPortal(
+          <Screenshotter
+            fullScreenDataUrl={fullScreenDataUrl}
+            onDone={handleScreenshotterDone}
+            onCancel={handleScreenshotterCancel}
+          />,
+          document.body,
+        )}
 
       {/* Recording stop bar — floats over the live page while recording */}
-      {recordingOverlayOpen && createPortal(
-        <div style={{
-          position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
-          zIndex: 2147483646,
-          display: "flex", alignItems: "center", gap: "14px",
-          padding: "10px 20px", borderRadius: "999px",
-          background: "rgba(15,23,42,0.92)",
-          boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
-          fontFamily: FONT,
-          backdropFilter: "blur(8px)",
-        }}>
-          <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#ef4444", display: "inline-block", animation: "fa-pulse 1s ease infinite" }} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>Recording in progress…</span>
-          <button
-            onClick={handleStopRecording}
-            style={{ padding: "6px 16px", fontSize: 13, fontWeight: 700, borderRadius: 999, border: "none", background: "#ef4444", color: "#fff", cursor: "pointer", fontFamily: FONT }}
+      {recordingOverlayOpen &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              top: 20,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 2147483646,
+              display: "flex",
+              alignItems: "center",
+              gap: "14px",
+              padding: "10px 20px",
+              borderRadius: "999px",
+              background: "rgba(15,23,42,0.92)",
+              boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
+              fontFamily: FONT,
+              backdropFilter: "blur(8px)",
+            }}
           >
-            Stop
-          </button>
-        </div>,
-        document.body
-      )}
+            <span
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                background: "#ef4444",
+                display: "inline-block",
+                animation: "fa-pulse 1s ease infinite",
+              }}
+            />
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>
+              Recording in progress…
+            </span>
+            <button
+              onClick={handleStopRecording}
+              style={{
+                padding: "6px 16px",
+                fontSize: 13,
+                fontWeight: 700,
+                borderRadius: 999,
+                border: "none",
+                background: "#ef4444",
+                color: "#fff",
+                cursor: "pointer",
+                fontFamily: FONT,
+              }}
+            >
+              Stop
+            </button>
+          </div>,
+          document.body,
+        )}
 
       {/* Main modal form */}
       <div
         style={backdropStyle}
-        onClick={(e) => { if (e.target === e.currentTarget && modalState !== "submitting") handleClose(); }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget && modalState !== "submitting")
+            handleClose();
+        }}
       >
-        <div style={cardStyle} role="dialog" aria-modal="true" aria-label="Feedback">
-
+        <div
+          style={cardStyle}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Feedback"
+        >
           {/* Header */}
           <div style={headerStyle}>
             <div>
-              <div style={{ fontSize: "16px", fontWeight: 700, color: "#111827", fontFamily: FONT }}>Share Feedback</div>
-              <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "2px", fontFamily: FONT }}>Help us improve your experience</div>
+              <div
+                style={{
+                  fontSize: "16px",
+                  fontWeight: 700,
+                  color: "#111827",
+                  fontFamily: FONT,
+                }}
+              >
+                Share Feedback
+              </div>
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "#9ca3af",
+                  marginTop: "2px",
+                  fontFamily: FONT,
+                }}
+              >
+                Help us improve your experience
+              </div>
             </div>
             <button
               onClick={handleClose}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: "22px", lineHeight: 1, padding: "2px 6px", borderRadius: "4px" }}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "#9ca3af",
+                fontSize: "22px",
+                lineHeight: 1,
+                padding: "2px 6px",
+                borderRadius: "4px",
+              }}
               title="Close"
-            >×</button>
+            >
+              ×
+            </button>
           </div>
 
           {/* Body */}
           <form onSubmit={handleSubmit}>
             <div style={bodyStyle}>
-
               {/* Title */}
               <div>
                 <label style={labelStyle} htmlFor="fa-title">
@@ -450,12 +614,17 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
               {/* ── Media picker ── */}
               <div>
                 <label style={labelStyle}>
-                  Attach media <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span>
+                  Attach media{" "}
+                  <span style={{ fontWeight: 400, color: "#9ca3af" }}>
+                    (optional)
+                  </span>
                 </label>
 
                 {/* Option buttons — shown when no media yet */}
                 {mediaType === "none" && (
-                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                  <div
+                    style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}
+                  >
                     <MediaOptionBtn
                       icon="📷"
                       label="Screenshot"
@@ -466,16 +635,27 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
                     <MediaOptionBtn
                       icon="🎥"
                       label="Record Screen"
-                      disabled={modalState === "submitting" || modalState === "capturing"}
+                      disabled={
+                        modalState === "submitting" ||
+                        modalState === "capturing"
+                      }
                       onClick={handleStartRecording}
                     />
                     <MediaOptionBtn
                       icon="📎"
                       label="Attach File"
-                      disabled={modalState === "submitting" || modalState === "capturing"}
+                      disabled={
+                        modalState === "submitting" ||
+                        modalState === "capturing"
+                      }
                       onClick={handleAttachment}
                     />
-                    <input ref={fileRef} type="file" style={{ display: "none" }} onChange={handleFileChange} />
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      style={{ display: "none" }}
+                      onChange={handleFileChange}
+                    />
                   </div>
                 )}
 
@@ -491,23 +671,44 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
               </div>
 
               {/* Auto-detect notice */}
-              <div style={{ fontSize: "12px", color: "#9ca3af", display: "flex", alignItems: "center", gap: "6px" }}>
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "#9ca3af",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
                 <span>✦</span>
-                <span>Category, device info and page URL are detected automatically.</span>
+                <span>
+                  Category, device info and page URL are detected automatically.
+                </span>
               </div>
 
               {/* Error */}
               {modalState === "error" && (
-                <div style={errorStyle} role="alert">{errorMessage}</div>
+                <div style={errorStyle} role="alert">
+                  {errorMessage}
+                </div>
               )}
             </div>
 
             {/* Footer */}
             <div style={footerStyle}>
-              <button type="button" style={outlineBtn} onClick={handleClose} disabled={modalState === "submitting"}>
+              <button
+                type="button"
+                style={outlineBtn}
+                onClick={handleClose}
+                disabled={modalState === "submitting"}
+              >
                 Cancel
               </button>
-              <button type="submit" style={primaryBtn} disabled={modalState === "submitting"}>
+              <button
+                type="submit"
+                style={primaryBtn}
+                disabled={modalState === "submitting"}
+              >
                 {modalState === "submitting" ? "Sending…" : "Submit Feedback"}
               </button>
             </div>
@@ -522,8 +723,18 @@ export function FeedbackModal({ config, onClose }: ModalProps) {
 
 // ── MediaOptionBtn ─────────────────────────────────────────────────────────────
 
-function MediaOptionBtn({ icon, label, loading, disabled, onClick }: {
-  icon: string; label: string; loading?: boolean; disabled?: boolean; onClick: () => void;
+function MediaOptionBtn({
+  icon,
+  label,
+  loading,
+  disabled,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  loading?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
 }) {
   return (
     <button
@@ -531,66 +742,138 @@ function MediaOptionBtn({ icon, label, loading, disabled, onClick }: {
       onClick={onClick}
       disabled={disabled || loading}
       style={{
-        display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
-        padding: "12px 16px", border: "1.5px solid #e5e7eb", borderRadius: "10px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "6px",
+        padding: "12px 16px",
+        border: "1.5px solid #e5e7eb",
+        borderRadius: "10px",
         background: disabled ? "#f9fafb" : "#fff",
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.5 : 1,
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        fontFamily:
+          "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         transition: "border-color 0.15s",
         minWidth: "90px",
       }}
-      onMouseEnter={(e) => { if (!disabled && !loading) e.currentTarget.style.borderColor = "#2563eb"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e5e7eb"; }}
+      onMouseEnter={(e) => {
+        if (!disabled && !loading)
+          e.currentTarget.style.borderColor = "#2563eb";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "#e5e7eb";
+      }}
     >
       <span style={{ fontSize: "22px" }}>{loading ? "⏳" : icon}</span>
-      <span style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>{loading ? "Capturing…" : label}</span>
+      <span style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>
+        {loading ? "Capturing…" : label}
+      </span>
     </button>
   );
 }
 
 // ── MediaPreview ────────────────────────────────────────────────────────────────
 
-function MediaPreview({ type, dataUrl, fileName, onClear }: {
-  type: MediaType; dataUrl: string; fileName: string; onClear: () => void;
+function MediaPreview({
+  type,
+  dataUrl,
+  fileName,
+  onClear,
+}: {
+  type: MediaType;
+  dataUrl: string;
+  fileName: string;
+  onClear: () => void;
 }) {
   const wrapStyle: React.CSSProperties = {
-    position: "relative", border: "1.5px solid #e5e7eb", borderRadius: "10px",
-    overflow: "hidden", background: "#f9fafb", marginTop: "10px",
+    position: "relative",
+    border: "1.5px solid #e5e7eb",
+    borderRadius: "10px",
+    overflow: "hidden",
+    background: "#f9fafb",
+    marginTop: "10px",
   };
   const clearBtn = (
     <button
-      type="button" onClick={onClear} title="Remove"
+      type="button"
+      onClick={onClear}
+      title="Remove"
       style={{
-        position: "absolute", top: "8px", right: "8px",
-        background: "rgba(0,0,0,0.55)", border: "none", borderRadius: "50%",
-        color: "#fff", width: "26px", height: "26px", cursor: "pointer",
-        fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "center",
+        position: "absolute",
+        top: "8px",
+        right: "8px",
+        background: "rgba(0,0,0,0.55)",
+        border: "none",
+        borderRadius: "50%",
+        color: "#fff",
+        width: "26px",
+        height: "26px",
+        cursor: "pointer",
+        fontSize: "14px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
       }}
-    >×</button>
+    >
+      ×
+    </button>
   );
 
-  if (type === "screenshot") return (
-    <div style={wrapStyle}>
-      <img src={dataUrl} alt="Screenshot preview" style={{ display: "block", width: "100%", maxHeight: "180px", objectFit: "cover" }} />
-      {clearBtn}
-    </div>
-  );
+  if (type === "screenshot")
+    return (
+      <div style={wrapStyle}>
+        <img
+          src={dataUrl}
+          alt="Screenshot preview"
+          style={{
+            display: "block",
+            width: "100%",
+            maxHeight: "180px",
+            objectFit: "cover",
+          }}
+        />
+        {clearBtn}
+      </div>
+    );
 
-  if (type === "recording") return (
-    <div style={wrapStyle}>
-      <video src={dataUrl} controls style={{ display: "block", width: "100%", maxHeight: "180px" }} />
-      {clearBtn}
-    </div>
-  );
+  if (type === "recording")
+    return (
+      <div style={wrapStyle}>
+        <video
+          src={dataUrl}
+          controls
+          style={{ display: "block", width: "100%", maxHeight: "180px" }}
+        />
+        {clearBtn}
+      </div>
+    );
 
-  if (type === "attachment") return (
-    <div style={{ ...wrapStyle, display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px" }}>
-      <span style={{ fontSize: "24px" }}>📎</span>
-      <span style={{ fontSize: "13px", color: "#374151", fontFamily: "-apple-system, sans-serif", wordBreak: "break-all" }}>{fileName}</span>
-      {clearBtn}
-    </div>
-  );
+  if (type === "attachment")
+    return (
+      <div
+        style={{
+          ...wrapStyle,
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          padding: "12px 14px",
+        }}
+      >
+        <span style={{ fontSize: "24px" }}>📎</span>
+        <span
+          style={{
+            fontSize: "13px",
+            color: "#374151",
+            fontFamily: "-apple-system, sans-serif",
+            wordBreak: "break-all",
+          }}
+        >
+          {fileName}
+        </span>
+        {clearBtn}
+      </div>
+    );
 
   return null;
 }
